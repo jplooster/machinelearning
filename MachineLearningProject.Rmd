@@ -1,0 +1,180 @@
+---
+title: "Teaching the machine"
+output: html_document
+---
+
+###Data processing
+Data used for this machine learning exercise is a set which can be downloaded from http://groupware.les.inf.puc-rio.br/har,  which contains data collected by wearable accelerometers. The goal of the exercise is to use this data, from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, to predict how they did the exercise: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) or throwing the hips to the front (Class E).
+The provided training set, is first partitioned 60/40 into a set to build the prediction (training) and a cross validation set (testing). The training set is then manually cleaned first, getting rid of all columns that are (near-)empty and/or contain mostly NA's.
+
+```{r, cache=TRUE}
+library(caret)
+library(randomForest)
+hardata <- read.csv("pml-training.csv")
+
+inTrain <- createDataPartition(y=hardata$classe, p = 0.60, list = FALSE)
+training <- hardata[inTrain, ]
+testing <- hardata[-inTrain, ]
+
+#cleaning the training set of (near-)empty variables ('NA'/blank cells) before running the train function to speed up calc time
+training <- training[training$new_window == 'no', ]
+
+training$amplitude_yaw_forearm <- NULL
+training$amplitude_pitch_forearm <- NULL
+training$amplitude_roll_forearm <- NULL
+training$var_pitch_forearm <- NULL
+training$avg_yaw_forearm <- NULL
+training$stddev_yaw_forearm <- NULL
+training$var_yaw_forearm <- NULL
+training$avg_pitch_forearm <- NULL
+training$var_roll_forearm <- NULL
+training$stddev_roll_forearm <- NULL
+training$avg_roll_forearm <- NULL
+training$var_accel_forearm <- NULL
+training$stddev_pitch_forearm <- NULL
+training$min_roll_forearm <- NULL
+training$min_pitch_forearm <- NULL
+training$min_yaw_forearm <- NULL
+training$max_yaw_forearm <- NULL
+training$max_picth_forearm <- NULL
+training$max_roll_forearm <- NULL
+training$skewness_yaw_forearm <- NULL
+training$skewness_pitch_forearm <- NULL
+training$skewness_roll_forearm <- NULL
+training$kurtosis_yaw_forearm <- NULL
+training$kurtosis_picth_forearm <- NULL
+training$kurtosis_roll_forearm <- NULL
+training$var_yaw_dumbbell <- NULL
+training$stddev_yaw_dumbbell <- NULL
+training$avg_yaw_dumbbell <- NULL
+training$var_pitch_dumbbell <- NULL
+training$stddev_pitch_dumbbell <- NULL
+training$avg_pitch_dumbbell <- NULL
+training$var_roll_dumbbell <- NULL
+training$stddev_roll_dumbbell <- NULL
+training$avg_roll_dumbbell <- NULL
+training$var_accel_dumbbell <- NULL
+training$amplitude_yaw_dumbbell <- NULL
+training$amplitude_pitch_dumbbell <- NULL
+training$amplitude_roll_dumbbell <- NULL
+training$min_yaw_dumbbell <- NULL
+training$min_pitch_dumbbell <- NULL
+training$min_roll_dumbbell <- NULL
+training$max_yaw_dumbbell <- NULL
+training$max_picth_dumbbell <- NULL
+training$max_roll_dumbbell <- NULL
+training$skewness_yaw_dumbbell <- NULL
+training$skewness_pitch_dumbbell <- NULL
+training$skewness_roll_dumbbell <- NULL
+training$kurtosis_yaw_dumbbell <- NULL
+training$kurtosis_picth_dumbbell <- NULL
+training$stddev_pitch_arm <- NULL
+training$var_pitch_arm <- NULL
+training$avg_yaw_arm <- NULL
+training$stddev_yaw_arm <- NULL
+training$var_yaw_arm <- NULL
+training$kurtosis_roll_arm <- NULL
+training$kurtosis_picth_arm <- NULL
+training$kurtosis_yaw_arm <- NULL
+training$skewness_roll_arm <- NULL
+training$skewness_pitch_arm <- NULL
+training$skewness_yaw_arm <- NULL
+training$max_roll_arm <- NULL
+training$max_picth_arm <- NULL
+training$max_yaw_arm <- NULL
+training$min_roll_arm <- NULL
+training$min_pitch_arm <- NULL
+training$min_yaw_arm <- NULL
+training$amplitude_roll_arm <- NULL
+training$amplitude_pitch_arm <- NULL
+training$amplitude_yaw_arm <- NULL
+training$kurtosis_roll_dumbbell <- NULL
+training$user_name <- NULL
+training$raw_timestamp_part_1 <- NULL
+training$kurtosis_roll_belt <- NULL
+training$kurtosis_picth_belt <- NULL
+training$kurtosis_yaw_belt <- NULL
+training$skewness_roll_belt <- NULL
+training$skewness_roll_belt.1 <- NULL
+training$skewness_yaw_belt <- NULL
+training$max_roll_belt <- NULL
+training$max_picth_belt <- NULL
+training$max_yaw_belt <- NULL
+training$min_yaw_belt <- NULL
+training$min_roll_belt <- NULL
+training$min_pitch_belt <- NULL
+training$amplitude_roll_belt <- NULL
+training$amplitude_pitch_belt <- NULL
+training$amplitude_yaw_belt <- NULL
+training$var_total_accel_belt <- NULL
+training$avg_roll_belt <- NULL
+training$stddev_roll_belt <- NULL
+training$var_roll_belt <- NULL
+training$avg_pitch_belt <- NULL
+training$stddev_pitch_belt <- NULL
+training$var_pitch_belt <- NULL
+training$var_yaw_belt <- NULL
+training$avg_yaw_belt <- NULL
+training$stddev_yaw_belt <- NULL
+training$var_accel_arm <- NULL
+training$avg_roll_arm <- NULL
+training$var_roll_arm <- NULL
+training$stddev_roll_arm <- NULL
+training$avg_pitch_arm <- NULL
+training$X <- NULL
+training$raw_timestamp_part_2 <- NULL
+training$cvtd_timestamp <- NULL
+training$new_window <- NULL
+training$num_window <- NULL
+
+```
+
+###Model building
+I have decided to use random forest prediction, since, unlike single decision trees which are likely to suffer from high variance or high bias (depending on how they are tuned) Random Forests use averaging to find a natural balance between the two extremes.
+
+Since they have very few parameters to tune and can be used quite efficiently with default parameter settings (i.e. they are effectively non-parametric) Random Forests are good to use as a first cut when you don't know the underlying model, or when you need to produce a decent model under severe time pressure.
+
+This ease of use also makes Random Forests an ideal tool for people without a background in statistics, allowing lay people to produce fairly strong predictions free from many common mistakes, with only a small amount of research and programming (source: http://www.kaggle.com/wiki/RandomForests).
+
+The initial random forest I tried was the following:
+```{r, eval=FALSE}
+set.seed(32323)
+modelFit <- train(classe ~., data = training, method="rf", prox= TRUE)
+```
+Though its accuracy is rather high (0.986), building the actual model took too long (4hrs+) to replicate in this markdown file (thus eval = FALSE in the code chunk), and I have since found better (and quicker) solutions.
+
+First model for evaluation is the following:
+```{r, cache=TRUE}
+set.seed(32323)
+modelFit1 <- suppressWarnings(train(classe ~., data= training, method = "rf", trControl = trainControl(method = "cv", number = 4, allowParallel = TRUE), preProcess = "pca"))
+print(modelFit1, digits = 3)
+print(modelFit1$finalModel, digits = 3)
+```
+Accuracy is a fair bit lower, than the (in this R markdown unevaluated) initial model. So I decided to tweak it, without sacrificing its improved build speed:
+```{r, cache=TRUE}
+set.seed(32323)
+modelFit2 <- train(classe ~., data= training, method = "rf", trControl = trainControl(method = "cv", number = 4, allowParallel = TRUE))
+print(modelFit2, digits = 3)
+print(modelFit2$finalModel, digits = 3)
+```
+This looks a lot better already, with increased accuracy and better performance in its internal cross validation (more on this in the next paragraph). Lastly I decided to use a different R package (randomForest) to see what the result from that would be:
+```{r, cache=TRUE}
+set.seed(32323)
+modelFit3 <- randomForest(classe ~., data = training)
+print(modelFit3, digits = 3)
+```
+Accuracy is not expicitly measured, but its internal cross validation matrix shows it appears to be better than the Caret-produced Random Forest model. 
+
+###Cross-Validation
+In Random Forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run, as follows:  
+Each tree is constructed using a different bootstrap sample from the original data. About one-third of the cases are left out of the bootstrap sample and not used in the construction of the $k^th$ tree.  
+Put each case left out in the construction of the $k^th$ tree down the $k^th$ tree to get a classification. In this way, a test set classification is obtained for each case in about one-third of the trees. At the end of the run, take j to be the class that got most of the votes every time case n was out-of-bag. The proportion of times that j is not equal to the true class of n averaged over all cases is the oob error estimate. This has proven to be unbiased in many tests. (source: http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm)
+Having said all this, it is little trouble to cross validate the models on the testing set, especially since the training set was quite aggressively cleaned prior to modelling. 
+```{r, cache=TRUE}
+print(confusionMatrix(testing$classe, predict(modelFit2, testing)), digits = 3)
+print(confusionMatrix(testing$classe, predict(modelFit3, testing)), digits = 3)
+```
+Both modelFit2 and modelFit3 have a high accuracy of 0.992 after cross validation. Given that the confusion matrix for modelFit2 seems to show a slightly higher success rate, so modelFit2 is the model I choose
+
+###Out of Sample error
+Random forest models don't have an out of sample error as such. Instead, they calculate an out-of-bag error, which was mentioned in the cross-validation section. The out-of-bag error for ModelFit2 is 0.92 as printed in modelFit2's 'finalModel' under the model building section.
